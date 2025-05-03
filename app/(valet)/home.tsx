@@ -7,24 +7,12 @@ import globalStyles from '../styles/global';
 export default function ValetHomePage() {
     const router = useRouter();
 
-    const navigateToCheckIn = () => {
-        router.push('/(valet)/checkin');
-    };
-
-    const navigateToRetrieve = () => {
-        router.push('/(valet)/checkout');
-    };
-
-    const navigateToNewCustomer = () => {
-        router.push('/(valet)/newcustomer');
-    };
-
-    const navigateToActiveVehicles = () => {
-        router.push('/(tabs)/vehicle/ActiveVehicleScreen'); 
-    };
+    const navigateToCheckIn = () => router.push('/(valet)/checkin');
+    const navigateToRetrieve = () => router.push('/(valet)/checkout');
+    const navigateToActiveVehicles = () => router.push('/(valet)/activevehicles');
 
     return (
-        <View style={globalStyles.container}>
+        <View style={[globalStyles.container, styles.pageContainer]}>
             <Text style={globalStyles.title}>Valet Dashboard</Text>
 
             <TouchableOpacity style={globalStyles.button} onPress={navigateToCheckIn}>
@@ -39,7 +27,21 @@ export default function ValetHomePage() {
                 <Text style={globalStyles.buttonText}>Active Vehicles</Text>
             </TouchableOpacity>
 
-            <SignOutButton />
+            <View style={styles.signOutContainer}>
+                <SignOutButton />
+            </View>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    pageContainer: {
+        flex: 1,
+    },
+    signOutContainer: {
+        position: 'absolute',
+        bottom: 30,
+        left: 20,
+        right: 20,
+    }
+});

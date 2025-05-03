@@ -1,61 +1,62 @@
-import { useState } from "react";
-import { View, Text, TextInput, Button, StyleSheet, Alert} from 'react-native';
+import { useState, useCallback } from "react";
+import { ScrollView, Text, StyleSheet, Alert, View} from 'react-native';
 import { addCustomer } from "@/lib/firebase";
 import { useRouter } from 'expo-router';
+import CustomerForm, { CustomerFormData} from "../components/CustomerForm";
 import globalStyles from "../styles/global";
 
 export default function NewCustomerScreen() {
-    const [name, setName] = useState('');
-    const [phoneNumber, setPhoneNumber] = useState('');
-    const [email, setEmail] = useState('');
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
-  
-    const handleAddCustomer = async () => {
-      if (!name || !phoneNumber || !email) {
-        Alert.alert('Missing Fields', 'Name, Phone Number, and Email are required.');
-        return;
-      }
-  
-      try {
-        const customerId = await addCustomer({ name, phoneNumber, email });
-        Alert.alert('Success', 'Customer added!');
-        setName('');
-        setPhoneNumber('');
-        setEmail('');
-        router.push(`/(valet)/checkin?customerId=${customerId}`);
-      } catch (error) {
-        console.error('Error adding customer:', error);
-        Alert.alert('Error', 'Failed to add customer.');
-      }
-    };
-  
-    return (
-      <View style={globalStyles.container}>
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} />
-  
-        <Text style={styles.label}>Phone Number</Text>
-        <TextInput style={styles.input} value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" />
-  
-        <Text style={styles.label}>Email</Text>
-        <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" />
-  
-        <Button title={'Add Customer'} onPress={handleAddCustomer}/>
-      </View>
+
+    const handleCreateCustomer = useCallback(async (formData: CustomerFormData) => {
+        setLoading(true);
+        try {
+            const customerId = await addCustomer(formData);
+            if (!customerId) {
+                throw new Error('Failed to create customer or retrieve ID.');
+            }
+            Alert.alert('Success', `Customer '${formData.name}' added successfully!`);
+            router.push({
+                pathname: '/(valet)/checkin',
+                params: { customerId: customerId }
+            });
+        } catch (error: any) {
+            console.error('Error adding customer:', error);
+            Alert.alert('Error', error.message || 'Failed to add customer.');
+        } finally {
+            setLoading(false);
+        }
+     }, [router]);
+
+     return (
+        <ScrollView
+            style={globalStyles.scrollContainer}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+        >
+            <Text style={[globalStyles.title, styles.titleMargin]}>Register New Customer</Text>
+
+            <View style={globalStyles.card}>
+                <CustomerForm
+                    onSubmit={handleCreateCustomer}
+                    isSubmitting={loading}
+                    submitButtonText="Add Customer & Continue"
+                    showCancelButton={true}
+                    onCancel={() => router.back()}
+                />
+            </View>
+
+        </ScrollView>
     );
-  };
-    
-  const styles = StyleSheet.create({
-    label: {
-      fontWeight: '600',
-      marginBottom: 4
+}
+
+const styles = StyleSheet.create({
+    contentContainer: {
+        padding: 20,
+        paddingBottom: 40,
     },
-    input: {
-      borderWidth: 1,
-      borderColor: '#ddd',
-      padding: 10,
-      borderRadius: 8,
-      backgroundColor: '#fff'
-    }
-  });
-  
+    titleMargin: {
+        marginBottom: 30,
+    },
+});

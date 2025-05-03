@@ -1,53 +1,44 @@
-import { useState, useEffect } from 'react';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View, Text, StyleSheet, FlatList, Button, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter, useLocalSearchParams, Link } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { db, customersCollection } from '../../lib/firebase';
-import { query, where, or, getDocs, collection } from 'firebase/firestore';
-
+import { query, getDocs, orderBy, startAt, endAt } from 'firebase/firestore';
+import globalStyles, {COLORS} from '../styles/global';
 interface Customer {
     id: string;
     name: string;
     phoneNumber: string;
     email: string;
+    name_lowercase?: string;
 }
 
 export default function CustomerSearchScreen() {
     const router = useRouter();
-    const { query: routeQuery } = useLocalSearchParams(); 
+    const { query: routeQuery } = useLocalSearchParams<{ query?: string }>();
     const [searchResults, setSearchResults] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const searchQuery = Array.isArray(routeQuery) ? routeQuery.join('') : routeQuery;
+    const searchQuery = useMemo(() => (Array.isArray(routeQuery) ? routeQuery[0] : routeQuery) ?? '', [routeQuery]);
 
     useEffect(() => {
-        const searchCustomers = async (search: string) => {
-            if (!search) {
-                setSearchResults([]); 
-                return;
+        const performSearch = async () => {
+            const searchTerm = searchQuery.trim();
+            if (!searchTerm) {
+                setSearchResults([]); setLoading(false); setError(''); return;
             }
-
-            setLoading(true);
-            setError('');
-
+            setLoading(true); setError('');
             try {
+                const searchTermLower = searchTerm.toLowerCase();
                 const q = query(
                     customersCollection,
-                    or(
-                        where('name', '>=', search.toLowerCase()),
-                        where('name', '<=', search.toLowerCase() + '\uf8ff'),
-                        where('phoneNumber', '>=', search),
-                        where('phoneNumber', '<=', search + '\uf8ff'),
-                        where('email', '>=', search.toLowerCase()),
-                        where('email', '<=', search.toLowerCase() + '\uf8ff')
-                    )
+                    orderBy('name_lowercase'),
+                    startAt(searchTermLower),
+                    endAt(searchTermLower + '\uf8ff')
                 );
-
                 const querySnapshot = await getDocs(q);
                 const results: Customer[] = [];
-                querySnapshot.forEach((doc) => {
-                    results.push({ id: doc.id, ...doc.data() } as Customer);
-                });
+                querySnapshot.forEach((doc) => { results.push({ id: doc.id, ...doc.data() } as Customer); });
                 setSearchResults(results);
             } catch (err: any) {
                 console.error('Error searching customers:', err);
@@ -56,123 +47,72 @@ export default function CustomerSearchScreen() {
                 setLoading(false);
             }
         };
-
-        searchCustomers(searchQuery);
+        performSearch();
     }, [searchQuery]);
 
-    const handleSelectCustomer = (customerId: string) => {
-        router.push(`/(valet)/checkin?customerId=${customerId}`);
-    };
+    const handleSelectCustomer = useCallback((customerId: string) => {
+        router.push({ pathname: '/(valet)/checkin', params: { customerId: customerId } });
+    }, [router, origin]);
+
+    const renderCustomerItem = useCallback(({ item }: { item: Customer }) => (
+        <TouchableOpacity onPress={() => handleSelectCustomer(item.id)} style={globalStyles.card}>
+           <Text style={globalStyles.label}>{item.name}</Text>
+           <Text style={globalStyles.infoText}>Phone: {item.phoneNumber}</Text>
+           <Text style={globalStyles.infoText}>Email: {item.email}</Text>
+        </TouchableOpacity>
+    ), [handleSelectCustomer]);
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#fff" />
-                <Text style={styles.loadingText}>Searching...</Text>
+            <View style={globalStyles.centeredContainer}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={globalStyles.infoText}>Searching...</Text>
             </View>
         );
     }
 
     if (error) {
         return (
-            <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-                <Button title="Go Back to Check-in" onPress={() => router.back()} />
+            <View style={globalStyles.centeredContainer}>
+                <Text style={globalStyles.errorText}>{error}</Text>
+                <TouchableOpacity style={globalStyles.buttonSecondary} onPress={() => router.back()}>
+                     <Text style={globalStyles.buttonTextSecondary}>Go Back</Text>
+                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Customer Search Results</Text>
+        <View style={globalStyles.container}>
+            <Link href={'/(valet)/checkin'} style={styles.backButton}>
+                <Text style={styles.backButtonText}>{'< Back'}</Text>
+            </Link>
+
+            <Text style={[globalStyles.title, styles.titleSpacing]}>Customer Search Results</Text>
             {searchQuery ? (
-                <Text style={styles.subtitle}>Searching for: {searchQuery}</Text>
+                <Text style={globalStyles.subtitle}>Results for: "{searchQuery}"</Text>
             ) : (
-                <Text style={styles.subtitle}>Enter a search term on the previous screen.</Text>
+                <Text style={globalStyles.subtitle}>Please enter a search query.</Text>
             )}
 
             {searchResults.length > 0 ? (
                 <FlatList
                     data={searchResults}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <View style={styles.resultItem}>
-                            <Text style={styles.resultName}>Name: {item.name}</Text>
-                            <Text style={styles.resultInfo}>Phone: {item.phoneNumber}</Text>
-                            <Text style={styles.resultInfo}>Email: {item.email}</Text>
-                            <Button title="Select" onPress={() => handleSelectCustomer(item.id)} />
-                        </View>
-                    )}
+                    renderItem={renderCustomerItem}
+                    style={styles.list}
                 />
             ) : (
-                <Text style={styles.noResults}>No customers found matching your search.</Text>
+                searchQuery && <Text style={[globalStyles.infoText, styles.noResults]}>No customers found matching "{searchQuery}".</Text>
             )}
-
-            <Button title="Go Back to Check-in" onPress={() => router.back()} />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#2f6380',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#2f6380',
-    },
-    loadingText: {
-        color: '#fff',
-        fontSize: 18,
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#5a8dcc',
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 16,
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#ffffff',
-        marginBottom: 10,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#cccccc',
-        marginBottom: 20,
-    },
-    resultItem: {
-        marginBottom: 15,
-        padding: 10,
-        backgroundColor: '#333333',
-        borderRadius: 5,
-        borderColor: '#444444',
-        borderWidth: 1,
-    },
-    resultName: {
-        color: '#ffffff',
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    resultInfo: {
-        color: '#dddddd',
-        marginBottom: 3,
-    },
-    noResults: {
-        color: '#cccccc',
-        fontStyle: 'italic',
-        marginTop: 10,
-    },
+    list: { marginTop: 15 },
+    noResults: { marginTop: 20, textAlign: 'center' },
+    backButton: { position: 'absolute', top: 20, left: 20, zIndex: 1, padding: 5 },
+    backButtonText: { fontSize: 18, color: COLORS.primary },
+    titleSpacing: { marginTop: 50 },
 });

@@ -1,7 +1,8 @@
+import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
-
+import globalStyles, {COLORS} from '../styles/global';
 const SignOutButton = () => {
     const { signOut } = useAuth();
     const router = useRouter();
@@ -17,26 +18,13 @@ const SignOutButton = () => {
     };
 
     return (
-        <TouchableOpacity style={styles.button} onPress={handleSignOut}>
-            <Text style={styles.buttonText}>Sign Out</Text>
+        <TouchableOpacity
+            style={globalStyles.buttonSecondary}
+            onPress={handleSignOut}
+        >
+            <Text style={globalStyles.buttonTextSecondary}>Sign Out</Text>
         </TouchableOpacity>
     );
 };
-
-const styles = StyleSheet.create({
-    button: {
-        backgroundColor: 'blue',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 5,
-        alignItems: 'center',
-        justifyContent: 'center', 
-    },
-    buttonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-});
 
 export default SignOutButton;

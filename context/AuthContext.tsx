@@ -3,16 +3,9 @@ import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router'; 
-
+import { UserProfile } from '@/types';
 export type UserRole = 'admin' | 'valet' | 'customer' | null;
 
-interface UserProfile {
-  role: UserRole;
-  displayName: string;
-  phoneNumber: string;
-  email: string;
-  uid: string;
-}
 
 interface AuthContextType {
   user: User | null;
@@ -56,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setRole(userData.role as UserRole);
             setProfile({
               role: userData.role as UserRole,
-              displayName: userData.name,
+              name: userData.name,
               phoneNumber: userData.phoneNumber,
               email: authUser.email || '',
               uid: authUser.uid,
